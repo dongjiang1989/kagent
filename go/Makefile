@@ -43,33 +43,36 @@ fmt: ## Run go fmt.
 vet: ## Run go vet.
 	go vet ./...
 
+KAL_SO = $(LOCALBIN)/kube-api-linter.so
+
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint.
+lint: golangci-lint $(KAL_SO) ## Run golangci-lint.
 	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint with auto-fix.
+lint-fix: golangci-lint $(KAL_SO) ## Run golangci-lint with auto-fix.
 	$(GOLANGCI_LINT) run --fix
 
 .PHONY: lint-config
 lint-config: golangci-lint ## Verify golangci-lint linter configuration.
 	$(GOLANGCI_LINT) config verify
 
-KAL_BIN ?= $(LOCALBIN)/golangci-kube-api-linter
-
 .PHONY: lint-api
-lint-api: $(KAL_BIN)
-	$(KAL_BIN) run --config .golangci-kal.yml ./api/v1alpha1/... ./api/v1alpha2/...
+lint-api: golangci-lint $(KAL_SO)
+	$(GOLANGCI_LINT) run ./api/v1alpha1/... ./api/v1alpha2/...
 
 .PHONY: lint-api-fix
-lint-api-fix: $(KAL_BIN)
-	$(KAL_BIN) run --fix --config .golangci-kal.yml ./api/v1alpha1/... ./api/v1alpha2/...
+lint-api-fix: golangci-lint $(KAL_SO)
+	$(GOLANGCI_LINT) run --fix ./api/v1alpha1/... ./api/v1alpha2/...
 
-$(KAL_BIN): golangci-lint
+$(KAL_SO):
 	@mkdir -p $(LOCALBIN)
-	@echo "Building custom golangci-lint with kube-api-linter plugin..."
-	GOLANGCI_LINT_CUSTOM_CONFIG=.custom-gcl.yaml GOLANGCI_LINT_SKIP_BUILD=true GOLANGCI_LINT_OFFLINE=true $(GOLANGCI_LINT) custom
-	@mv tmp/bin/golangci-kube-api-linter $(KAL_BIN)
+	@echo "Building kube-api-linter plugin..."
+	@rm -rf $(LOCALBIN)/golangci-lint-src
+	@git clone --depth 1 --branch $(GOLANGCI_LINT_VERSION) --quiet https://github.com/golangci/golangci-lint.git $(LOCALBIN)/golangci-lint-src
+	@cd $(LOCALBIN)/golangci-lint-src && go get sigs.k8s.io/kube-api-linter@$(KAL_VERSION)
+	@cd $(LOCALBIN)/golangci-lint-src && go build -buildmode=plugin -o $(KAL_SO) sigs.k8s.io/kube-api-linter/pkg/plugin
+	@rm -rf $(LOCALBIN)/golangci-lint-src
 
 .PHONY: govulncheck
 govulncheck: ## Run govulncheck.
@@ -115,7 +118,8 @@ core/bin/kagent-windows-amd64.exe.sha256: core/bin/kagent-windows-amd64.exe
 .PHONY: clean
 clean:
 	rm -f core/bin/kagent* && mkdir -p core/bin
-	rm -f $(LOCALBIN)/golangci-kube-api-linter*
+	rm -f $(LOCALBIN)/kube-api-linter.so
+	rm -rf $(LOCALBIN)/golangci-lint-src
 
 .PHONY: build
 build: core/bin/kagent-linux-amd64.sha256 core/bin/kagent-linux-arm64.sha256 core/bin/kagent-darwin-amd64.sha256 core/bin/kagent-darwin-arm64.sha256 core/bin/kagent-windows-amd64.exe.sha256
@@ -153,6 +157,7 @@ ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 GOLANGCI_LINT_VERSION ?= v2.11.3
+KAL_VERSION ?= v0.0.0-20260423112246-3fa174937a6b
 SQLC_VERSION ?= v1.30.0
 
 .PHONY: controller-gen
