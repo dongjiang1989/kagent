@@ -159,6 +159,8 @@ ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -
 GOLANGCI_LINT_VERSION ?= v2.11.3
 KAL_VERSION ?= v0.0.0-20260423112246-3fa174937a6b
 SQLC_VERSION ?= v1.30.0
+BUF ?= $(LOCALBIN)/buf
+BUF_VERSION ?= v1.52.1
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
@@ -188,6 +190,11 @@ sqlc: $(SQLC) ## Download sqlc locally if necessary.
 $(SQLC): $(LOCALBIN)
 	$(call go-install-tool,$(SQLC),github.com/sqlc-dev/sqlc/cmd/sqlc,$(SQLC_VERSION))
 
+.PHONY: buf
+buf: $(BUF) ## Download buf locally if necessary (OpenShell proto generation).
+$(BUF): $(LOCALBIN)
+	$(call go-install-tool,$(BUF),github.com/bufbuild/buf/cmd/buf,$(BUF_VERSION))
+
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
 # $2 - package url which can be installed
@@ -203,3 +210,7 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
+
+.PHONY: openshell-proto
+openshell-proto: buf ## Regenerate OpenShell stubs from api/openshell/proto (buf; needs protoc-gen-go + protoc-gen-go-grpc on PATH).
+	@cd api/openshell/proto && $(BUF) generate
