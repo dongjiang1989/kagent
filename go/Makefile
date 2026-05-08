@@ -57,14 +57,6 @@ lint-fix: golangci-lint $(KAL_SO) ## Run golangci-lint with auto-fix.
 lint-config: golangci-lint ## Verify golangci-lint linter configuration.
 	$(GOLANGCI_LINT) config verify
 
-.PHONY: lint-api
-lint-api: golangci-lint $(KAL_SO)
-	$(GOLANGCI_LINT) run ./api/v1alpha1/... ./api/v1alpha2/...
-
-.PHONY: lint-api-fix
-lint-api-fix: golangci-lint $(KAL_SO)
-	$(GOLANGCI_LINT) run --fix ./api/v1alpha1/... ./api/v1alpha2/...
-
 $(KAL_SO):
 	@mkdir -p $(LOCALBIN)
 	@echo "Building kube-api-linter plugin..."
